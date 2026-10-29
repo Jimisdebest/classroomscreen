@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classroomscreen · Whiteboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
+
+  body {
+    background: #1a2a3a;
+    min-height: 100vh;
+    overflow: hidden;
+    color: #1e3b5c;
+  }
+
+  .app {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ===== ZIJBALK ===== */
+  .sidebar {
+    width: 90px;
+    background: #0f2637;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 12px;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+    z-index: 100;
+    overflow-y: auto;
+  }
+
+  .tool-btn {
+    width: 62px;
+    height: 62px;
+    border-radius: 18px;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: #c6d9ec;
+    font-size: 1.7rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: all 0.15s;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .tool-btn span.label {
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+  }
+
+  .tool-btn:hover {
+    background: rgba(255,255,255,0.18);
+    color: white;
+    transform: scale(1.05);
+  }
+
+  .tool-btn.active {
+    background: #4a90d9;
+    color: white;
+    box-shadow: 0 0 15px rgba(74,144,217,0.6);
+  }
+
+  .tool-btn.active span.label { opacity: 1; }
+
+  /* ===== HOOFDGEBIED ===== */
+  .main-area {
+    flex: 1;
+    position: relative;
+    background: #f7fafd;
+    overflow: hidden;
+  }
+
+  .canvas-container {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(rgba(200,215,230,0.35) 1px, transparent 1px) 0 0 / 100% 40px,
+      linear-gradient(90deg, rgba(200,215,230,0.35) 1px, transparent 1px) 0 0 / 40px 100%,
+      #f7fafd;
+  }
+
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: crosshair;
+  }
+
+  /* ===== FULLSCREEN KNOP ===== */
+  .fullscreen-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(15,38,55,0.85);
+    color: #c6d9ec;
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(8px);
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    z-index: 90;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+
+  .fullscreen-btn:hover {
+    background: #4a90d9;
+    color: white;
+    transform: scale(1.05);
+  }
+
+  .fullscreen-btn:active { transform: scale(0.95); }
+
+  /* ===== PANELEN ===== */
+  .panel {
+    position: absolute;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 22px;
+    box-shadow: 0 20px 45px rgba(0,20,40,0.22), inset 0 1px 3px white;
+    border: 1px solid rgba(255,255,255,0.9);
+    display: none;
+    z-index: 50;
+  }
+
+  .panel.open { display: flex; flex-direction: column; }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: #1e3b5c;
+    color: white;
+    border-radius: 22px 22px 0 0;
+    cursor: move;
+    user-select: none;
+  }
+
+  .panel-header h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-close {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.15s;
+  }
+
+  .panel-close:hover { background: #e05353; }
+
+  .panel-body { padding: 18px; }
+
+  /* ===== TIMER PANEEL ===== */
+  #timerPanel { width: 320px; top: 40px; left: 40px; }
+
+  .timer-display {
+    background: linear-gradient(135deg, #112b3f, #1e405b);
+    border-radius: 18px;
+    padding: 22px 12px;
+    text-align: center;
+    box-shadow: inset 0 6px 12px rgba(0,0,0,0.4);
+    margin-bottom: 16px;
+  }
+
+  .timer-digits {
+    font-size: 3.8rem;
+    font-weight: 700;
+    color: #eef7ff;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 18px rgba(150,210,255,0.6);
+    letter-spacing: 4px;
+    line-height: 1;
+  }
+
+  .timer-digits.warning { color: #ffb3b3; text-shadow: 0 0 18px rgba(255,100,100,0.8); }
+
+  .timer-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .preset-btn {
+    flex: 1 0 50px;
+    padding: 8px 6px;
+    border-radius: 10px;
+    border: 1px solid #cddcea;
+    background: white;
+    font-weight: 600;
+    color: #1e3b5c;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: 0.15s;
+  }
+
+  .preset-btn:hover { background: #eaf3fc; border-color: #4a90d9; }
+
+  .custom-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .custom-row input {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #cddcea;
+    font-size: 1rem;
+    text-align: center;
+    font-weight: 600;
+    color: #1e3b5c;
+    outline: none;
+  }
+
+  .custom-row input:focus { border-color: #4a90d9; box-shadow: 0 0 0 3px rgba(74,144,217,0.2); }
+
+  .timer-controls { display: flex; gap: 8px; }
+
+  .btn {
+    flex: 1;
+    padding: 12px 10px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: 0.15s;
+    background: #eaf0f7;
+    color: #1e3b5c;
+  }
+
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary { background: #4a90d9; color: white; }
+  .btn-primary:hover { background: #3a7bc0; }
+  .btn-warning { background: #ffe0b2; color: #7a4e1e; }
+
+  /* ===== TEKST PANEEL ===== */
+  #textPanel { width: 420px; top: 40px; left: 200px; }
+
+  #textPanel textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid #cddcea;
+    background: #fbfdff;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: #0b2a41;
+    resize: vertical;
+    outline: none;
+    line-height: 1.4;
+    font-family: inherit;
+  }
+
+  #textPanel textarea:focus { border-color: #4a90d9; box-shadow: 0 0 0 3px rgba(74,144,217,0.2); }
+
+  .text-colors {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .color-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: 0.15s;
+  }
+
+  .color-swatch:hover { transform: scale(1.15); }
+  .color-swatch.active { border-color: #1e3b5c; transform: scale(1.15); }
+
+  /* ===== NAAMKIEZER PANEEL ===== */
+  #namePanel { width: 320px; top: 40px; left: 300px; }
+
+  #namePanel textarea {
+    width: 100%;
+    height: 140px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #cddcea;
+    font-size: 0.95rem;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+    color: #1e3b5c;
+    background: #fbfdff;
+  }
+
+  #namePanel textarea:focus { border-color: #4a90d9; box-shadow: 0 0 0 3px rgba(74,144,217,0.2); }
+
+  .picked-name {
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 18px;
+    margin-top: 12px;
+    background: linear-gradient(135deg, #e8f2fb, #d4e6f7);
+    border-radius: 14px;
+    color: #1e3b5c;
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ===== ACHTERGROND PANEEL ===== */
+  #bgPanel { width: 280px; top: 40px; left: 300px; }
+
+  .bg-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .bg-option {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    transition: 0.15s;
+  }
+
+  .bg-option:hover { transform: scale(1.08); }
+  .bg-option.active { border-color: #4a90d9; transform: scale(1.08); }
+
+  /* ===== TEKEN TOOLBAR ===== */
+  .draw-toolbar {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 10px 16px;
+    display: none;
+    gap: 10px;
+    align-items: center;
+    box-shadow: 0 15px 35px rgba(0,20,40,0.25);
+    border: 1px solid rgba(255,255,255,0.9);
+    z-index: 60;
+  }
+
+  .draw-toolbar.open { display: flex; }
+
+  .draw-color {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: 0.15s;
+  }
+
+  .draw-color:hover { transform: scale(1.15); }
+  .draw-color.active { border-color: #1e3b5c; transform: scale(1.15); }
+
+  .draw-size {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid #cddcea;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.15s;
+  }
+
+  .draw-size:hover { border-color: #4a90d9; }
+  .draw-size.active { background: #4a90d9; border-color: #4a90d9; }
+  .draw-size .dot { border-radius: 50%; background: #1e3b5c; }
+  .draw-size.active .dot { background: white; }
+
+  .draw-btn {
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: none;
+    background: #eaf0f7;
+    color: #1e3b5c;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+
+  .draw-btn:hover { background: #d8e6f4; }
+  .draw-btn.active { background: #4a90d9; color: white; }
+
+  /* ===== ACHTERGRONDEN ===== */
+  .bg-grid {
+    background:
+      linear-gradient(rgba(200,215,230,0.35) 1px, transparent 1px) 0 0 / 100% 40px,
+      linear-gradient(90deg, rgba(200,215,230,0.35) 1px, transparent 1px) 0 0 / 40px 100%,
+      #f7fafd;
+  }
+
+  .bg-plain { background: #f7fafd; }
+  .bg-dark { background: #1a2a3a; }
+  .bg-green { background: #e8f5e9; }
+  .bg-blue { background: #e3f2fd; }
+  .bg-warm { background: #fff3e0; }
+  .bg-pink { background: #fce4ec; }
+  .bg-purple { background: #f3e5f5; }
+
+  /* ===== HINT ===== */
+  .hint {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(15,38,55,0.85);
+    color: #c6d9ec;
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    letter-spacing: 0.3px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  /* ===== TEKST WEERGAVE OP CANVAS ===== */
+  .canvas-text {
+    position: absolute;
+    padding: 8px 12px;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #1e3b5c;
+    cursor: move;
+    user-select: none;
+    min-width: 50px;
+    border: 2px dashed transparent;
+    border-radius: 8px;
+    z-index: 20;
+  }
+
+  .canvas-text:hover { border-color: rgba(74,144,217,0.5); }
+  .canvas-text.selected { border-color: #4a90d9; background: rgba(74,144,217,0.05); }
+
+  .canvas-text .delete-text {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #e05353;
+    color: white;
+    border: 2px solid white;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  .canvas-text:hover .delete-text { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ZIJBALK -->
+  <aside class="sidebar">
+    <button class="tool-btn" data-panel="timerPanel" title="Timer">
+      <span>⏱</span><span class="label">Timer</span>
+    </button>
+    <button class="tool-btn" data-panel="textPanel" title="Tekst">
+      <span>📝</span><span class="label">Tekst</span>
+    </button>
+    <button class="tool-btn" data-panel="namePanel" title="Naamkiezer">
+      <span>👥</span><span class="label">Namen</span>
+    </button>
+    <button class="tool-btn" id="drawToolBtn" title="Tekenen">
+      <span>✏️</span><span class="label">Teken</span>
+    </button>
+    <button class="tool-btn" data-panel="bgPanel" title="Achtergrond">
+      <span>🎨</span><span class="label">Achter</span>
+    </button>
+    <button class="tool-btn" id="clearAllBtn" title="Alles wissen">
+      <span>🗑️</span><span class="label">Wis</span>
+    </button>
+  </aside>
+
+  <!-- HOOFDGEBIED -->
+  <main class="main-area" id="mainArea">
+    <div class="canvas-container" id="canvasContainer">
+      <canvas id="drawCanvas"></canvas>
+      <div id="textLayer"></div>
+    </div>
+
+    <!-- FULLSCREEN KNOP -->
+    <button class="fullscreen-btn" id="fullscreenBtn" title="Volledig scherm">⛶</button>
+
+    <!-- TIMER PANEEL -->
+    <div class="panel" id="timerPanel">
+      <div class="panel-header">
+        <h3>⏱ Timer</h3>
+        <button class="panel-close" onclick="closePanel('timerPanel')">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="timer-display">
+          <div class="timer-digits" id="timerDigits">05:00</div>
+        </div>
+        <div class="timer-presets">
+          <button class="preset-btn" data-min="1">1m</button>
+          <button class="preset-btn" data-min="2">2m</button>
+          <button class="preset-btn" data-min="5">5m</button>
+          <button class="preset-btn" data-min="10">10m</button>
+          <button class="preset-btn" data-min="15">15m</button>
+        </div>
+        <div class="custom-row">
+          <input type="number" id="customMin" min="0" max="180" value="5">
+          <button class="btn" id="setCustomBtn">Stel in</button>
+        </div>
+        <div class="timer-controls">
+          <button class="btn btn-primary" id="startTimerBtn">▶ Start</button>
+          <button class="btn" id="pauseTimerBtn">⏸ Pauze</button>
+          <button class="btn btn-warning" id="resetTimerBtn">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEKST PANEEL -->
+    <div class="panel" id="textPanel">
+      <div class="panel-header">
+        <h3>📝 Tekst op bord</h3>
+        <button class="panel-close" onclick="closePanel('textPanel')">✕</button>
+      </div>
+      <div class="panel-body">
+        <textarea id="textInput" placeholder="Typ hier je tekst...">Welkom bij de les!</textarea>
+        <div class="text-colors" id="textColors">
+          <div class="color-swatch active" data-color="#1e3b5c" style="background:#1e3b5c"></div>
+          <div class="color-swatch" data-color="#e05353" style="background:#e05353"></div>
+          <div class="color-swatch" data-color="#34c759" style="background:#34c759"></div>
+          <div class="color-swatch" data-color="#ff9500" style="background:#ff9500"></div>
+          <div class="color-swatch" data-color="#af52de" style="background:#af52de"></div>
+          <div class="color-swatch" data-color="#ffffff" style="background:#ffffff;border-color:#ccc"></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px;width:100%" id="placeTextBtn">Plaats tekst op bord</button>
+      </div>
+    </div>
+
+    <!-- NAAMKIEZER PANEEL -->
+    <div class="panel" id="namePanel">
+      <div class="panel-header">
+        <h3>👥 Naamkiezer</h3>
+        <button class="panel-close" onclick="closePanel('namePanel')">✕</button>
+      </div>
+      <div class="panel-body">
+        <textarea id="namesInput" placeholder="Eén naam per regel..."></textarea>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" id="pickNameBtn">Kies een naam</button>
+        <div class="picked-name" id="pickedName">—</div>
+      </div>
+    </div>
+
+    <!-- ACHTERGROND PANEEL -->
+    <div class="panel" id="bgPanel">
+      <div class="panel-header">
+        <h3>🎨 Achtergrond</h3>
+        <button class="panel-close" onclick="closePanel('bgPanel')">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="bg-options" id="bgOptions">
+          <div class="bg-option active bg-grid" data-bg="bg-grid" style="background-image:linear-gradient(rgba(200,215,230,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(200,215,230,0.5) 1px,transparent 1px);background-size:100% 40px,40px 100%;background-color:#f7fafd"></div>
+          <div class="bg-option bg-plain" data-bg="bg-plain" style="background:#f7fafd"></div>
+          <div class="bg-option bg-dark" data-bg="bg-dark" style="background:#1a2a3a"></div>
+          <div class="bg-option bg-green" data-bg="bg-green" style="background:#e8f5e9"></div>
+          <div class="bg-option bg-blue" data-bg="bg-blue" style="background:#e3f2fd"></div>
+          <div class="bg-option bg-warm" data-bg="bg-warm" style="background:#fff3e0"></div>
+          <div class="bg-option bg-pink" data-bg="bg-pink" style="background:#fce4ec"></div>
+          <div class="bg-option bg-purple" data-bg="bg-purple" style="background:#f3e5f5"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEKEN TOOLBAR -->
+    <div class="draw-toolbar" id="drawToolbar">
+      <div class="draw-color active" data-color="#1e3b5c" style="background:#1e3b5c"></div>
+      <div class="draw-color" data-color="#e05353" style="background:#e05353"></div>
+      <div class="draw-color" data-color="#34c759" style="background:#34c759"></div>
+      <div class="draw-color" data-color="#ff9500" style="background:#ff9500"></div>
+      <div class="draw-color" data-color="#af52de" style="background:#af52de"></div>
+      <div class="draw-size active" data-size="3"><div class="dot" style="width:6px;height:6px"></div></div>
+      <div class="draw-size" data-size="8"><div class="dot" style="width:12px;height:12px"></div></div>
+      <div class="draw-size" data-size="16"><div class="dot" style="width:20px;height:20px"></div></div>
+      <button class="draw-btn" id="eraserBtn">🧽 Gum</button>
+      <button class="draw-btn" id="clearDrawBtn">Wis alles</button>
+    </div>
+
+    <div class="hint">💡 Versleep panelen · klik op tool om te openen</div>
+  </main>
+</div>
+
+<script>
+(function() {
+  // ========== FULLSCREEN ==========
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const mainArea = document.getElementById('mainArea');
+
+  fullscreenBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.warn('Fullscreen fout:', err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    fullscreenBtn.textContent = document.fullscreenElement ? '⛶' : '⛶';
+    // Zorg dat canvas formaat klopt na fullscreen wissel
+    setTimeout(resizeCanvas, 100);
+  });
+
+  // ========== PANEL BEHEER ==========
+  const panels = document.querySelectorAll('.panel');
+  const toolBtns = document.querySelectorAll('[data-panel]');
+
+  window.closePanel = function(id) {
+    document.getElementById(id).classList.remove('open');
+    document.querySelector(`[data-panel="${id}"]`)?.classList.remove('active');
+  };
+
+  toolBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panelId = btn.dataset.panel;
+      const panel = document.getElementById(panelId);
+      const isOpen = panel.classList.contains('open');
+
+      panels.forEach(p => p.classList.remove('open'));
+      toolBtns.forEach(b => b.classList.remove('active'));
+
+      if (!isOpen) {
+        panel.classList.add('open');
+        btn.classList.add('active');
+        keepInBounds(panel);
+      }
+    });
+  });
+
+  // Panelen versleepbaar maken
+  panels.forEach(panel => {
+    const header = panel.querySelector('.panel-header');
+    let isDragging = false, startX, startY, startLeft, startTop;
+
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('panel-close')) return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      const rect = panel.getBoundingClientRect();
+      const parentRect = panel.offsetParent.getBoundingClientRect();
+      startLeft = rect.left - parentRect.left;
+      startTop = rect.top - parentRect.top;
+      panel.style.transition = 'none';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      panel.style.left = (startLeft + dx) + 'px';
+      panel.style.top = (startTop + dy) + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        panel.style.transition = '';
+        keepInBounds(panel);
+      }
+    });
+  });
+
+  function keepInBounds(panel) {
+    const parent = panel.offsetParent;
+    if (!parent) return;
+    const parentRect = parent.getBoundingClientRect();
+    const rect = panel.getBoundingClientRect();
+    let left = parseFloat(panel.style.left) || rect.left - parentRect.left;
+    let top = parseFloat(panel.style.top) || rect.top - parentRect.top;
+
+    if (left < 10) left = 10;
+    if (top < 10) top = 10;
+    if (left + rect.width > parentRect.width - 10) left = parentRect.width - rect.width - 10;
+    if (top + rect.height > parentRect.height - 10) top = parentRect.height - rect.height - 10;
+
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+  }
+
+  // ========== TIMER ==========
+  const timerDigits = document.getElementById('timerDigits');
+  const startTimerBtn = document.getElementById('startTimerBtn');
+  const pauseTimerBtn = document.getElementById('pauseTimerBtn');
+  const resetTimerBtn = document.getElementById('resetTimerBtn');
+  const customMinInput = document.getElementById('customMin');
+  const setCustomBtn = document.getElementById('setCustomBtn');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  let totalSeconds = 300;
+  let remainingSeconds = 300;
+  let timerInterval = null;
+  let isRunning = false;
+
+  function formatTime(sec) {
+    if (sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function updateTimerDisplay() {
+    timerDigits.textContent = formatTime(remainingSeconds);
+    timerDigits.classList.toggle('warning', remainingSeconds <= 10 && remainingSeconds > 0 && isRunning);
+  }
+
+  function stopTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    isRunning = false;
+  }
+
+  function startTimer() {
+    if (isRunning) return;
+    if (remainingSeconds <= 0) remainingSeconds = totalSeconds;
+    isRunning = true;
+    timerInterval = setInterval(() => {
+      if (remainingSeconds > 0) {
+        remainingSeconds--;
+        updateTimerDisplay();
+        if (remainingSeconds === 0) {
+          stopTimer();
+          updateTimerDisplay();
+        }
+      }
+    }, 1000);
+  }
+
+  function setTimer(seconds) {
+    stopTimer();
+    if (seconds < 0) seconds = 0;
+    if (seconds > 10800) seconds = 10800;
+    totalSeconds = seconds;
+    remainingSeconds = seconds;
+    updateTimerDisplay();
+  }
+
+  startTimerBtn.addEventListener('click', startTimer);
+  pauseTimerBtn.addEventListener('click', () => { stopTimer(); updateTimerDisplay(); });
+  resetTimerBtn.addEventListener('click', () => { setTimer(totalSeconds); });
+
+  presetBtns.forEach(b => b.addEventListener('click', () => {
+    const min = parseInt(b.dataset.min);
+    setTimer(min * 60);
+    customMinInput.value = min;
+  }));
+
+  setCustomBtn.addEventListener('click', () => {
+    let min = parseInt(customMinInput.value) || 0;
+    if (min < 0) min = 0;
+    if (min > 180) min = 180;
+    customMinInput.value = min;
+    setTimer(min * 60);
+  });
+
+  customMinInput.addEventListener('keypress', e => {
+    if (e.key === 'Enter') setCustomBtn.click();
+  });
+
+  updateTimerDisplay();
+
+  // ========== TEKST OP BORD ==========
+  const textLayer = document.getElementById('textLayer');
+  const textInput = document.getElementById('textInput');
+  const placeTextBtn = document.getElementById('placeTextBtn');
+  const textColors = document.querySelectorAll('#textColors .color-swatch');
+  let currentTextColor = '#1e3b5c';
+
+  textColors.forEach(sw => {
+    sw.addEventListener('click', () => {
+      textColors.forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+      currentTextColor = sw.dataset.color;
+    });
+  });
+
+  function makeTextDraggable(el) {
+    let isDragging = false, startX, startY, startLeft, startTop;
+
+    el.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('delete-text')) return;
+      isDragging = true;
+      el.classList.add('selected');
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = parseFloat(el.style.left) || 0;
+      startTop = parseFloat(el.style.top) || 0;
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      el.style.left = (startLeft + e.clientX - startX) + 'px';
+      el.style.top = (startTop + e.clientY - startY) + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        el.classList.remove('selected');
+      }
+    });
+  }
+
+  placeTextBtn.addEventListener('click', () => {
+    const text = textInput.value.trim();
+    if (!text) return;
+
+    const el = document.createElement('div');
+    el.className = 'canvas-text';
+    el.textContent = text;
+    el.style.color = currentTextColor;
+    el.style.left = (60 + Math.random() * 200) + 'px';
+    el.style.top = (60 + Math.random() * 200) + 'px';
+    el.style.whiteSpace = 'pre-wrap';
+    el.style.maxWidth = '400px';
+
+    const del = document.createElement('button');
+    del.className = 'delete-text';
+    del.textContent = '✕';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      el.remove();
+    });
+    el.appendChild(del);
+
+    makeTextDraggable(el);
+    textLayer.appendChild(el);
+    closePanel('textPanel');
+    document.querySelector('[data-panel="textPanel"]')?.classList.remove('active');
+  });
+
+  // ========== NAAMKIEZER ==========
+  const namesInput = document.getElementById('namesInput');
+  const pickNameBtn = document.getElementById('pickNameBtn');
+  const pickedName = document.getElementById('pickedName');
+
+  pickNameBtn.addEventListener('click', () => {
+    const names = namesInput.value.split('\n').map(n => n.trim()).filter(n => n);
+    if (names.length === 0) {
+      pickedName.textContent = '—';
+      return;
+    }
+    let count = 0;
+    const interval = setInterval(() => {
+      pickedName.textContent = names[Math.floor(Math.random() * names.length)];
+      count++;
+      if (count > 12) {
+        clearInterval(interval);
+        pickedName.textContent = names[Math.floor(Math.random() * names.length)];
+      }
+    }, 80);
+  });
+
+  // ========== ACHTERGROND ==========
+  const canvasContainer = document.getElementById('canvasContainer');
+  const bgOptions = document.querySelectorAll('.bg-option');
+
+  bgOptions.forEach(opt => {
+    opt.addEventListener('click', () => {
+      bgOptions.forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      canvasContainer.className = 'canvas-container ' + opt.dataset.bg;
+    });
+  });
+
+  // ========== TEKENEN ==========
+  const drawToolBtn = document.getElementById('drawToolBtn');
+  const drawToolbar = document.getElementById('drawToolbar');
+  const canvas = document.getElementById('drawCanvas');
+  const ctx = canvas.getContext('2d');
+
+  let drawing = false;
+  let isEraser = false;
+  let currentDrawColor = '#1e3b5c';
+  let currentDrawSize = 3;
+  let lastX = 0, lastY = 0;
+
+  function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const imageData = ctx.getImageData(0, 0, canvas.width || 1, canvas.height || 1);
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    try { ctx.putImageData(imageData, 0, 0); } catch(e) {}
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  drawToolBtn.addEventListener('click', () => {
+    const isOpen = drawToolbar.classList.contains('open');
+    drawToolbar.classList.toggle('open');
+    drawToolBtn.classList.toggle('active');
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (!drawToolbar.classList.contains('open')) return;
+    drawing = true;
+    const rect = canvas.getBoundingClientRect();
+    lastX = e.clientX - rect.left;
+    lastY = e.clientY - rect.top;
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!drawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    if (isEraser) {
+      ctx.strokeStyle = '#f7fafd';
+      ctx.lineWidth = currentDrawSize * 4;
+    } else {
+      ctx.strokeStyle = currentDrawColor;
+      ctx.lineWidth = currentDrawSize;
+    }
+    ctx.stroke();
+
+    lastX = x;
+    lastY = y;
+  });
+
+  document.addEventListener('mouseup', () => { drawing = false; });
+  canvas.addEventListener('mouseleave', () => { drawing = false; });
+
+  // Tekenkleuren
+  const drawColors = document.querySelectorAll('.draw-color');
+  drawColors.forEach(c => {
+    c.addEventListener('click', () => {
+      drawColors.forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      currentDrawColor = c.dataset.color;
+      isEraser = false;
+      document.getElementById('eraserBtn').classList.remove('active');
+    });
+  });
+
+  // Teken diktes
+  const drawSizes = document.querySelectorAll('.draw-size');
+  drawSizes.forEach(s => {
+    s.addEventListener('click', () => {
+      drawSizes.forEach(x => x.classList.remove('active'));
+      s.classList.add('active');
+      currentDrawSize = parseInt(s.dataset.size);
+    });
+  });
+
+  // Gum
+  const eraserBtn = document.getElementById('eraserBtn');
+  eraserBtn.addEventListener('click', () => {
+    isEraser = !isEraser;
+    eraserBtn.classList.toggle('active', isEraser);
+  });
+
+  // Wissen
+  document.getElementById('clearDrawBtn').addEventListener('click', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+
+  // ========== ALLES WISSEN ==========
+  document.getElementById('clearAllBtn').addEventListener('click', () => {
+    if (!confirm('Alles wissen? Tekeningen en tekstblokken worden verwijderd.')) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    textLayer.innerHTML = '';
+  });
+
+})();
+</script>
+</body>
+</html>
